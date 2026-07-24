@@ -129,13 +129,27 @@
     display: block;
   }
 
-  .video-wrap video {
+  .video-wrap video,
+  .video-wrap img {
     width: 100%;
     aspect-ratio: 16 / 9;
+    object-fit: contain;
     border: 3px solid #ff4fd8;
     border-radius: 12px;
     box-shadow: 0 0 30px rgba(255, 79, 216, 0.6);
     background: #000;
+  }
+
+  .video-wrap img {
+    display: none;
+  }
+
+  .video-wrap.show-image video {
+    display: none;
+  }
+
+  .video-wrap.show-image img {
+    display: block;
   }
 
   .notes {
@@ -176,18 +190,55 @@
       <source src="v.mp4" type="video/mp4">
       Dein Browser kann dieses Video leider nicht abspielen.
     </video>
+    <img id="imgFrame" src="" alt="Bild">
   </div>
 
-<script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+  import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAmgP26BpQsBi9YvCEz-T6P3StlY-fJyjg",
+    authDomain: "clenda.firebaseapp.com",
+    databaseURL: "https://clenda-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "clenda",
+    storageBucket: "clenda.firebasestorage.app",
+    messagingSenderId: "62584430291",
+    appId: "1:62584430291:web:527b348a4b041e16c9be26"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // Konfiguration in der Realtime Database unter dem Pfad "config":
+  //   config/randomEnabled  -> true/false, ob überhaupt zufällig gewählt wird
+  //   config/videoChance    -> Zahl zwischen 0 und 1, Chance für das Video (Rest = Bild)
+  //   config/imageUrl       -> Pfad/URL zum Bild, das stattdessen gezeigt wird
+  //
+  // Fehlt "config" ganz, oder randomEnabled = false, wird immer das Video gezeigt.
+  async function loadConfig() {
+    const fallback = { randomEnabled: false, videoChance: 0.5, imageUrl: 'bild.jpg' };
+    try {
+      const snap = await get(ref(db, 'config'));
+      if (snap.exists()) {
+        return { ...fallback, ...snap.val() };
+      }
+    } catch (err) {
+      console.error('Firebase-Konfiguration konnte nicht geladen werden:', err);
+    }
+    return fallback;
+  }
+
   const record = document.getElementById('record');
   const tonearm = document.getElementById('tonearm');
   const hint = document.getElementById('hint');
   const videoWrap = document.getElementById('videoWrap');
-  const ytFrame = document.getElementById('ytFrame');
+  const videoEl = document.getElementById('ytFrame');
+  const imgEl = document.getElementById('imgFrame');
 
   let played = false;
 
-  record.addEventListener('click', () => {
+  record.addEventListener('click', async () => {
     if (played) return;
     played = true;
 
@@ -200,9 +251,18 @@
       setTimeout(spawnNote, i * 150);
     }
 
+    const config = await loadConfig();
+    const showVideo = !config.randomEnabled || Math.random() < config.videoChance;
+
     setTimeout(() => {
+      if (showVideo) {
+        videoWrap.classList.remove('show-image');
+        videoEl.play();
+      } else {
+        imgEl.src = config.imageUrl;
+        videoWrap.classList.add('show-image');
+      }
       videoWrap.classList.add('show');
-      ytFrame.play();
       videoWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 600);
   });
