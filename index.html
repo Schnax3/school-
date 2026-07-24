@@ -138,6 +138,7 @@
     border-radius: 12px;
     box-shadow: 0 0 30px rgba(255, 79, 216, 0.6);
     background: #000;
+    pointer-events: none;
   }
 
   .video-wrap img {
@@ -230,7 +231,7 @@
   <p class="hint" id="hint">👆 Klick mich an</p>
 
   <div class="video-wrap" id="videoWrap">
-    <video id="ytFrame" controls playsinline>
+    <video id="ytFrame" playsinline disablepictureinpicture controlslist="nodownload noplaybackrate nofullscreen" tabindex="-1" oncontextmenu="return false">
       <source src="v.mp4" type="video/mp4">
       Dein Browser kann dieses Video leider nicht abspielen.
     </video>
@@ -316,6 +317,25 @@
   const videoWrap = document.getElementById('videoWrap');
   const videoEl = document.getElementById('ytFrame');
   const imgEl = document.getElementById('imgFrame');
+
+  // Video darf nicht pausiert werden: jeder Pause-Versuch (Leertaste,
+  // Tab-Wechsel, DevTools, etc.) wird sofort wieder rückgängig gemacht.
+  videoEl.addEventListener('pause', () => {
+    if (!videoEl.ended) {
+      log('Pause-Versuch erkannt -> Video wird fortgesetzt');
+      videoEl.play().catch(() => {});
+    }
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && videoWrap.classList.contains('show') && !videoWrap.classList.contains('show-image')) {
+      videoEl.play().catch(() => {});
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if ([' ', 'k', 'K', 'ArrowLeft', 'ArrowRight'].includes(e.key) && videoWrap.classList.contains('show')) {
+      e.preventDefault();
+    }
+  });
 
   let played = false;
 
