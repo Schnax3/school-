@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Never Gonna Give You Up 🎵</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at center, #2b1055, #0f0c29);
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: white;
+    overflow: hidden;
+    text-align: center;
+    padding: 20px;
+  }
+
+  h1 {
+    font-size: 2rem;
+    margin-bottom: 5px;
+    text-shadow: 0 0 15px #ff4fd8;
+  }
+
+  p.sub {
+    opacity: 0.7;
+    margin-top: 0;
+    margin-bottom: 30px;
+  }
+
+  .stage {
+    position: relative;
+    width: 320px;
+    height: 320px;
+  }
+
+  .record {
+    width: 320px;
+    height: 320px;
+    border-radius: 50%;
+    background:
+      repeating-radial-gradient(circle at center,
+        #111 0px, #111 3px,
+        #1c1c1c 4px, #1c1c1c 6px);
+    box-shadow: 0 0 40px rgba(255, 79, 216, 0.5), inset 0 0 20px #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: spin 3s linear infinite;
+    animation-play-state: paused;
+    cursor: pointer;
+  }
+
+  .record.spinning {
+    animation-play-state: running;
+  }
+
+  .label {
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ff4fd8, #7b2ff7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    text-align: center;
+    padding: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.6);
+  }
+
+  .label::after {
+    content: "";
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: #0f0c29;
+    border-radius: 50%;
+  }
+
+  .tonearm {
+    position: absolute;
+    top: -20px;
+    right: -40px;
+    width: 140px;
+    height: 140px;
+    transform-origin: top right;
+    transform: rotate(-25deg);
+    transition: transform 0.6s ease;
+    pointer-events: none;
+  }
+
+  .tonearm.down {
+    transform: rotate(5deg);
+  }
+
+  .tonearm svg { width: 100%; height: 100%; }
+
+  .hint {
+    margin-top: 30px;
+    font-size: 0.95rem;
+    opacity: 0.8;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+
+  .video-wrap {
+    margin-top: 30px;
+    max-width: 560px;
+    width: 90vw;
+    display: none;
+  }
+
+  .video-wrap.show {
+    display: block;
+  }
+
+  .video-wrap iframe {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border: 3px solid #ff4fd8;
+    border-radius: 12px;
+    box-shadow: 0 0 30px rgba(255, 79, 216, 0.6);
+  }
+
+  .notes {
+    position: fixed;
+    font-size: 24px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  @keyframes floatUp {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(-200px) rotate(30deg); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+  <h1>🎶 Leg die Platte auf 🎶</h1>
+  <p class="sub">Klick auf die Schallplatte, um sie abzuspielen...</p>
+
+  <div class="stage">
+    <div class="record" id="record">
+      <div class="label">PLAY<br>ME</div>
+    </div>
+    <div class="tonearm" id="tonearm">
+      <svg viewBox="0 0 140 140">
+        <line x1="130" y1="10" x2="30" y2="100" stroke="#ddd" stroke-width="6" stroke-linecap="round"/>
+        <circle cx="130" cy="10" r="10" fill="#ccc"/>
+        <circle cx="30" cy="100" r="6" fill="#ff4fd8"/>
+      </svg>
+    </div>
+  </div>
+
+  <p class="hint" id="hint">👆 Klick mich an</p>
+
+  <div class="video-wrap" id="videoWrap">
+    <iframe id="ytFrame"
+      src=""
+      title="Video"
+      frameborder="0"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      allowfullscreen>
+    </iframe>
+  </div>
+
+<script>
+  const record = document.getElementById('record');
+  const tonearm = document.getElementById('tonearm');
+  const hint = document.getElementById('hint');
+  const videoWrap = document.getElementById('videoWrap');
+  const ytFrame = document.getElementById('ytFrame');
+
+  let played = false;
+
+  record.addEventListener('click', () => {
+    if (played) return;
+    played = true;
+
+    record.classList.add('spinning');
+    tonearm.classList.add('down');
+    hint.style.display = 'none';
+
+    // ein paar Noten fliegen lassen
+    for (let i = 0; i < 12; i++) {
+      setTimeout(spawnNote, i * 150);
+    }
+
+    setTimeout(() => {
+      videoWrap.classList.add('show');
+      ytFrame.src = "https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1";
+      videoWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 600);
+  });
+
+  function spawnNote() {
+    const note = document.createElement('div');
+    note.className = 'notes';
+    note.textContent = ['🎵','🎶','🎼'][Math.floor(Math.random()*3)];
+    const rect = record.getBoundingClientRect();
+    note.style.left = (rect.left + rect.width/2 + (Math.random()*100-50)) + 'px';
+    note.style.top = (rect.top + rect.height/2) + 'px';
+    note.style.animation = 'floatUp 1.5s ease-out forwards';
+    document.body.appendChild(note);
+    setTimeout(() => note.remove(), 1500);
+  }
+</script>
+
+</body>
+</html>
