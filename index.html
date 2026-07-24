@@ -59,6 +59,12 @@
     animation-play-state: running;
   }
 
+  .record.disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+    filter: grayscale(0.6);
+  }
+
   .label {
     width: 110px;
     height: 110px;
@@ -216,7 +222,7 @@
   <p class="sub">Klick auf die Schallplatte, um sie abzuspielen...</p>
 
   <div class="stage">
-    <div class="record" id="record">
+    <div class="record disabled" id="record">
       <div class="label">PLAY<br>ME</div>
     </div>
     <div class="tonearm" id="tonearm">
@@ -228,7 +234,7 @@
     </div>
   </div>
 
-  <p class="hint" id="hint">👆 Klick mich an</p>
+  <p class="hint" id="hint">⏳ Lade Konfiguration...</p>
 
   <div class="video-wrap" id="videoWrap">
     <video id="ytFrame" playsinline disablepictureinpicture controlslist="nodownload noplaybackrate nofullscreen" tabindex="-1" oncontextmenu="return false">
@@ -300,14 +306,19 @@
     return fallback;
   }
 
-  // Config wird sofort beim Laden der Seite geholt, damit debug=true das
-  // Panel schon vor dem Klick zeigt. Das gleiche Ergebnis wird beim Klick
-  // wiederverwendet (kein zweiter Request nötig).
+  // Config wird bei JEDEM Seitenaufruf frisch aus der Datenbank geholt.
+  // Die Schallplatte bleibt bis dahin gesperrt (Klasse "disabled"),
+  // damit garantiert nie mit veralteten Werten entschieden wird.
+  let currentConfig = null;
   const configPromise = loadConfig().then(config => {
     if (config.debug) {
       debugPanel.classList.add('visible');
       log('Debug-Modus ist AKTIV (config/debug = true)');
     }
+    currentConfig = config;
+    record.classList.remove('disabled');
+    hint.textContent = '👆 Klick mich an';
+    log('Konfiguration frisch geladen -> Schallplatte freigeschaltet');
     return config;
   });
 
