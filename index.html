@@ -129,12 +129,13 @@
     display: block;
   }
 
-  .video-wrap iframe {
+  .video-wrap video {
     width: 100%;
     aspect-ratio: 16 / 9;
     border: 3px solid #ff4fd8;
     border-radius: 12px;
     box-shadow: 0 0 30px rgba(255, 79, 216, 0.6);
+    background: #000;
   }
 
   .notes {
@@ -171,13 +172,10 @@
   <p class="hint" id="hint">👆 Klick mich an</p>
 
   <div class="video-wrap" id="videoWrap">
-    <iframe id="ytFrame"
-      src=""
-      title="Video"
-      frameborder="0"
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-      allowfullscreen>
-    </iframe>
+    <video id="ytFrame" controls playsinline>
+      <source src="v.mp4" type="video/mp4">
+      Dein Browser kann dieses Video leider nicht abspielen.
+    </video>
   </div>
 
 <script>
@@ -204,7 +202,7 @@
 
     setTimeout(() => {
       videoWrap.classList.add('show');
-      ytFrame.src = "https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1";
+      ytFrame.play();
       videoWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 600);
   });
