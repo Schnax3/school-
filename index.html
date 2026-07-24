@@ -163,6 +163,50 @@
     0% { transform: translateY(0) rotate(0deg); opacity: 1; }
     100% { transform: translateY(-200px) rotate(30deg); opacity: 0; }
   }
+
+  .debug {
+    display: none;
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    max-width: 500px;
+    max-height: 40vh;
+    overflow-y: auto;
+    background: rgba(0,0,0,0.85);
+    border: 1px solid #ff4fd8;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: monospace;
+    font-size: 12px;
+    text-align: left;
+    color: #9effc4;
+    z-index: 999;
+  }
+
+  .debug.visible {
+    display: block;
+  }
+
+  .debug h3 {
+    margin: 0 0 6px 0;
+    color: #ff4fd8;
+    font-size: 13px;
+  }
+
+  .debug .line {
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 2px 0;
+  }
+
+  .debug .err {
+    color: #ff6b6b;
+  }
+
+  .debug .ok {
+    color: #9effc4;
+  }
 </style>
 </head>
 <body>
@@ -193,6 +237,11 @@
     <img id="imgFrame" src="" alt="Bild">
   </div>
 
+  <div class="debug" id="debug">
+    <h3>🐞 Debug</h3>
+    <div id="debugLines"></div>
+  </div>
+
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
   import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
@@ -210,24 +259,56 @@
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
 
+  const debugPanel = document.getElementById('debug');
+  const debugLines = document.getElementById('debugLines');
+
+  function log(msg, type = 'ok') {
+    console.log('[Rickroll-Debug]', msg);
+    const div = document.createElement('div');
+    div.className = 'line ' + (type === 'err' ? 'err' : 'ok');
+    const time = new Date().toLocaleTimeString('de-DE');
+    div.textContent = `[${time}] ${msg}`;
+    debugLines.appendChild(div);
+    debugLines.parentElement.scrollTop = debugLines.parentElement.scrollHeight;
+  }
+
+  log('Firebase App initialisiert (projectId: ' + firebaseConfig.projectId + ')');
+
   // Konfiguration in der Realtime Database unter dem Pfad "config":
   //   config/randomEnabled  -> true/false, ob überhaupt zufällig gewählt wird
   //   config/videoChance    -> Zahl zwischen 0 und 1, Chance für das Video (Rest = Bild)
-  //   config/imageUrl       -> Pfad/URL zum Bild, das stattdessen gezeigt wird
+  //   config/imageUrl       -> Pfad ODER volle URL (https://...) zum Bild
+  //   config/debug          -> true/false, ob das Debug-Panel unten links angezeigt wird
   //
   // Fehlt "config" ganz, oder randomEnabled = false, wird immer das Video gezeigt.
   async function loadConfig() {
-    const fallback = { randomEnabled: false, videoChance: 0.5, imageUrl: 'bild.jpg' };
+    const fallback = { randomEnabled: false, videoChance: 0.5, imageUrl: 'bild.jpg', debug: false };
+    log('Lade Konfiguration von: ' + firebaseConfig.databaseURL + '/config.json');
     try {
       const snap = await get(ref(db, 'config'));
       if (snap.exists()) {
-        return { ...fallback, ...snap.val() };
+        const merged = { ...fallback, ...snap.val() };
+        log('Konfiguration geladen: ' + JSON.stringify(merged));
+        return merged;
+      } else {
+        log('Kein "config"-Knoten in der Datenbank gefunden -> benutze Fallback: ' + JSON.stringify(fallback), 'err');
       }
     } catch (err) {
-      console.error('Firebase-Konfiguration konnte nicht geladen werden:', err);
+      log('Fehler beim Laden der Konfiguration: ' + err.message + ' -> benutze Fallback', 'err');
     }
     return fallback;
   }
+
+  // Config wird sofort beim Laden der Seite geholt, damit debug=true das
+  // Panel schon vor dem Klick zeigt. Das gleiche Ergebnis wird beim Klick
+  // wiederverwendet (kein zweiter Request nötig).
+  const configPromise = loadConfig().then(config => {
+    if (config.debug) {
+      debugPanel.classList.add('visible');
+      log('Debug-Modus ist AKTIV (config/debug = true)');
+    }
+    return config;
+  });
 
   const record = document.getElementById('record');
   const tonearm = document.getElementById('tonearm');
@@ -246,20 +327,32 @@
     tonearm.classList.add('down');
     hint.style.display = 'none';
 
+    log('Platte angeklickt, starte Entscheidung...');
+
     // ein paar Noten fliegen lassen
     for (let i = 0; i < 12; i++) {
       setTimeout(spawnNote, i * 150);
     }
 
-    const config = await loadConfig();
-    const showVideo = !config.randomEnabled || Math.random() < config.videoChance;
+    const config = await configPromise;
+    const roll = Math.random();
+    const showVideo = !config.randomEnabled || roll < config.videoChance;
+    log(`Zufallswert: ${roll.toFixed(3)} | randomEnabled: ${config.randomEnabled} | videoChance: ${config.videoChance} -> Entscheidung: ${showVideo ? 'VIDEO' : 'BILD'}`);
 
     setTimeout(() => {
       if (showVideo) {
         videoWrap.classList.remove('show-image');
-        videoEl.play();
+        videoEl.play().then(() => {
+          log('Video wird abgespielt (v.mp4)');
+        }).catch(err => {
+          log('Video konnte nicht automatisch starten: ' + err.message, 'err');
+        });
       } else {
-        imgEl.src = config.imageUrl;
+        const url = config.imageUrl;
+        log('Setze Bild-Quelle auf: ' + url);
+        imgEl.onload = () => log('Bild erfolgreich geladen: ' + url);
+        imgEl.onerror = () => log('Bild konnte NICHT geladen werden (falscher Link, CORS oder Datei fehlt): ' + url, 'err');
+        imgEl.src = url;
         videoWrap.classList.add('show-image');
       }
       videoWrap.classList.add('show');
