@@ -282,12 +282,12 @@
   log('Firebase App initialisiert (projectId: ' + firebaseConfig.projectId + ')');
 
   // Konfiguration in der Realtime Database unter dem Pfad "config":
-  //   config/randomEnabled  -> true/false, ob überhaupt zufällig gewählt wird
-  //   config/videoChance    -> Zahl zwischen 0 und 1, Chance für das Video (Rest = Bild)
+  //   config/randomEnabled  -> true = würfeln (nach videoChance), false = IMMER das Bild zeigen
+  //   config/videoChance    -> Zahl zwischen 0 und 1, Chance für das Video (nur relevant wenn randomEnabled=true)
   //   config/imageUrl       -> Pfad ODER volle URL (https://...) zum Bild
   //   config/debug          -> true/false, ob das Debug-Panel unten links angezeigt wird
   //
-  // Fehlt "config" ganz, oder randomEnabled = false, wird immer das Video gezeigt.
+  // Fehlt "config" ganz -> Fallback: randomEnabled=false -> immer das Bild.
   // Wandelt "true"/"false"/1/0/true/false zuverlässig in einen echten Boolean um.
   function toBool(val, fallback) {
     if (typeof val === 'boolean') return val;
@@ -302,7 +302,7 @@
   }
 
   async function loadConfig() {
-    const fallback = { randomEnabled: false, videoChance: 0.5, imageUrl: 'bild.jpg', debug: false };
+    const fallback = { randomEnabled: false, videoChance: 0.5, imageUrl: 'bild.jpg', debug: false, forceVideo: true };
     log('Lade Konfiguration von: ' + firebaseConfig.databaseURL + '/config.json');
     try {
       const snap = await get(ref(db, 'config'));
@@ -310,18 +310,19 @@
         const raw = snap.val();
         log('Rohdaten aus DB: ' + JSON.stringify(raw) + ' (Typ randomEnabled: ' + typeof raw.randomEnabled + ')');
         const merged = {
-          randomEnabled: toBool(raw.randomEnabled, fallback.randomEnabled),
-          videoChance: toNumber(raw.videoChance, fallback.videoChance),
+          randomEnabled: toBool(raw.randomEnabled, false),
+          videoChance: toNumber(raw.videoChance, 0.5),
           imageUrl: raw.imageUrl || fallback.imageUrl,
-          debug: toBool(raw.debug, fallback.debug)
+          debug: toBool(raw.debug, false),
+          forceVideo: false
         };
         log('Konfiguration normalisiert: ' + JSON.stringify(merged));
         return merged;
       } else {
-        log('Kein "config"-Knoten in der Datenbank gefunden -> benutze Fallback: ' + JSON.stringify(fallback), 'err');
+        log('Kein "config"-Knoten in der Datenbank gefunden -> erzwinge Video (Fallback): ' + JSON.stringify(fallback), 'err');
       }
     } catch (err) {
-      log('Fehler beim Laden der Konfiguration: ' + err.message + ' -> benutze Fallback', 'err');
+      log('Fehler beim Laden der Konfiguration: ' + err.message + ' -> erzwinge Video (Fallback)', 'err');
     }
     return fallback;
   }
@@ -387,8 +388,8 @@
 
     const config = currentConfig;
     const roll = Math.random();
-    const showVideo = !config.randomEnabled || roll < config.videoChance;
-    log(`Zufallswert: ${roll.toFixed(3)} | randomEnabled: ${config.randomEnabled} | videoChance: ${config.videoChance} -> Entscheidung: ${showVideo ? 'VIDEO' : 'BILD'}`);
+    const showVideo = config.forceVideo || (config.randomEnabled && roll < config.videoChance);
+    log(`Zufallswert: ${roll.toFixed(3)} | randomEnabled: ${config.randomEnabled} | videoChance: ${config.videoChance} | forceVideo: ${!!config.forceVideo} -> Entscheidung: ${showVideo ? 'VIDEO' : 'BILD'}`);
 
     setTimeout(() => {
       if (showVideo) {
