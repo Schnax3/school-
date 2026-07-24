@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Kontrollpanel</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0f0c29;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: white;
+    padding: 20px;
+  }
+
+  .panel {
+    width: 100%;
+    max-width: 480px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,79,216,0.4);
+    border-radius: 16px;
+    padding: 24px 28px;
+  }
+
+  h1 {
+    font-size: 1.4rem;
+    margin: 0 0 4px;
+    text-shadow: 0 0 12px #ff4fd8;
+  }
+
+  p.sub {
+    margin: 0 0 24px;
+    font-size: 0.85rem;
+    opacity: 0.6;
+  }
+
+  .field {
+    margin-bottom: 18px;
+  }
+
+  label {
+    display: block;
+    font-size: 0.85rem;
+    margin-bottom: 6px;
+    opacity: 0.85;
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  input[type="text"], input[type="number"] {
+    width: 100%;
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(0,0,0,0.3);
+    color: white;
+    font-size: 0.9rem;
+  }
+
+  input[type="range"] {
+    width: 100%;
+  }
+
+  .switch {
+    position: relative;
+    width: 46px;
+    height: 26px;
+    flex-shrink: 0;
+  }
+
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .slider-toggle {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background: rgba(255,255,255,0.2);
+    border-radius: 26px;
+    transition: 0.2s;
+  }
+
+  .slider-toggle::before {
+    content: "";
+    position: absolute;
+    height: 20px;
+    width: 20px;
+    left: 3px;
+    bottom: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: 0.2s;
+  }
+
+  input:checked + .slider-toggle {
+    background: #ff4fd8;
+  }
+
+  input:checked + .slider-toggle::before {
+    transform: translateX(20px);
+  }
+
+  .chance-value {
+    font-size: 0.85rem;
+    opacity: 0.8;
+    min-width: 40px;
+    text-align: right;
+  }
+
+  button {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #ff4fd8, #7b2ff7);
+    color: white;
+    font-size: 0.95rem;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 6px;
+  }
+
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .status {
+    margin-top: 14px;
+    font-size: 0.85rem;
+    text-align: center;
+    min-height: 18px;
+  }
+
+  .status.ok { color: #9effc4; }
+  .status.err { color: #ff6b6b; }
+
+  .preview {
+    margin-top: 8px;
+    max-width: 120px;
+    max-height: 68px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.2);
+    display: none;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid rgba(255,255,255,0.15);
+    margin: 22px 0;
+  }
+</style>
+</head>
+<body>
+
+  <div class="panel">
+    <h1>🎛️ Kontrollpanel</h1>
+    <p class="sub">Steuert die Konfiguration der Rickroll-Seite in Echtzeit</p>
+
+    <div class="field">
+      <div class="row">
+        <label style="margin:0;">Zufall aktiv (randomEnabled)</label>
+        <label class="switch">
+          <input type="checkbox" id="randomEnabled">
+          <span class="slider-toggle"></span>
+        </label>
+      </div>
+      <p style="font-size:0.75rem; opacity:0.5; margin:6px 0 0;">Aus = immer das Bild. An = würfelt nach Video-Chance.</p>
+    </div>
+
+    <div class="field">
+      <label>Video-Chance (videoChance)</label>
+      <div class="row">
+        <input type="range" id="videoChance" min="0" max="1" step="0.01" value="0.5">
+        <span class="chance-value" id="videoChanceValue">50%</span>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Bild-URL (imageUrl)</label>
+      <input type="text" id="imageUrl" placeholder="https://... oder bild.jpg">
+      <img class="preview" id="imagePreview">
+    </div>
+
+    <div class="field">
+      <div class="row">
+        <label style="margin:0;">Debug-Panel (debug)</label>
+        <label class="switch">
+          <input type="checkbox" id="debug">
+          <span class="slider-toggle"></span>
+        </label>
+      </div>
+    </div>
+
+    <hr>
+
+    <button id="saveBtn">Speichern</button>
+    <div class="status" id="status"></div>
+  </div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+  import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAmgP26BpQsBi9YvCEz-T6P3StlY-fJyjg",
+    authDomain: "clenda.firebaseapp.com",
+    databaseURL: "https://clenda-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "clenda",
+    storageBucket: "clenda.firebasestorage.app",
+    messagingSenderId: "62584430291",
+    appId: "1:62584430291:web:527b348a4b041e16c9be26"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const configRef = ref(db, 'config');
+
+  const randomEnabledEl = document.getElementById('randomEnabled');
+  const videoChanceEl = document.getElementById('videoChance');
+  const videoChanceValueEl = document.getElementById('videoChanceValue');
+  const imageUrlEl = document.getElementById('imageUrl');
+  const imagePreviewEl = document.getElementById('imagePreview');
+  const debugEl = document.getElementById('debug');
+  const saveBtn = document.getElementById('saveBtn');
+  const statusEl = document.getElementById('status');
+
+  function updateChanceLabel() {
+    videoChanceValueEl.textContent = Math.round(videoChanceEl.value * 100) + '%';
+  }
+  videoChanceEl.addEventListener('input', updateChanceLabel);
+
+  function updatePreview() {
+    const url = imageUrlEl.value.trim();
+    if (url) {
+      imagePreviewEl.src = url;
+      imagePreviewEl.style.display = 'block';
+      imagePreviewEl.onerror = () => { imagePreviewEl.style.display = 'none'; };
+    } else {
+      imagePreviewEl.style.display = 'none';
+    }
+  }
+  imageUrlEl.addEventListener('change', updatePreview);
+
+  // Live-Sync: Panel zeigt immer den aktuellen Stand der Datenbank,
+  // auch wenn jemand anderes (oder die Firebase-Konsole) etwas ändert.
+  onValue(configRef, (snap) => {
+    if (!snap.exists()) {
+      statusEl.textContent = 'Kein "config"-Knoten vorhanden – wird beim ersten Speichern angelegt.';
+      statusEl.className = 'status err';
+      return;
+    }
+    const data = snap.val();
+    randomEnabledEl.checked = data.randomEnabled === true || data.randomEnabled === 'true';
+    videoChanceEl.value = Number(data.videoChance) || 0;
+    updateChanceLabel();
+    imageUrlEl.value = data.imageUrl || '';
+    updatePreview();
+    debugEl.checked = data.debug === true || data.debug === 'true';
+    statusEl.textContent = 'Aktueller Stand geladen.';
+    statusEl.className = 'status ok';
+  }, (err) => {
+    statusEl.textContent = 'Fehler beim Laden: ' + err.message;
+    statusEl.className = 'status err';
+  });
+
+  saveBtn.addEventListener('click', async () => {
+    saveBtn.disabled = true;
+    statusEl.textContent = 'Speichere...';
+    statusEl.className = 'status';
+    const payload = {
+      randomEnabled: randomEnabledEl.checked,
+      videoChance: Number(videoChanceEl.value),
+      imageUrl: imageUrlEl.value.trim(),
+      debug: debugEl.checked
+    };
+    try {
+      await set(configRef, payload);
+      statusEl.textContent = 'Gespeichert ✓';
+      statusEl.className = 'status ok';
+    } catch (err) {
+      statusEl.textContent = 'Fehler beim Speichern: ' + err.message;
+      statusEl.className = 'status err';
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
+</script>
+
+</body>
+</html>
