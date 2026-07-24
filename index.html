@@ -288,14 +288,34 @@
   //   config/debug          -> true/false, ob das Debug-Panel unten links angezeigt wird
   //
   // Fehlt "config" ganz, oder randomEnabled = false, wird immer das Video gezeigt.
+  // Wandelt "true"/"false"/1/0/true/false zuverlässig in einen echten Boolean um.
+  function toBool(val, fallback) {
+    if (typeof val === 'boolean') return val;
+    if (typeof val === 'number') return val !== 0;
+    if (typeof val === 'string') return val.trim().toLowerCase() === 'true' || val === '1';
+    return fallback;
+  }
+
+  function toNumber(val, fallback) {
+    const n = Number(val);
+    return Number.isFinite(n) ? n : fallback;
+  }
+
   async function loadConfig() {
     const fallback = { randomEnabled: false, videoChance: 0.5, imageUrl: 'bild.jpg', debug: false };
     log('Lade Konfiguration von: ' + firebaseConfig.databaseURL + '/config.json');
     try {
       const snap = await get(ref(db, 'config'));
       if (snap.exists()) {
-        const merged = { ...fallback, ...snap.val() };
-        log('Konfiguration geladen: ' + JSON.stringify(merged));
+        const raw = snap.val();
+        log('Rohdaten aus DB: ' + JSON.stringify(raw) + ' (Typ randomEnabled: ' + typeof raw.randomEnabled + ')');
+        const merged = {
+          randomEnabled: toBool(raw.randomEnabled, fallback.randomEnabled),
+          videoChance: toNumber(raw.videoChance, fallback.videoChance),
+          imageUrl: raw.imageUrl || fallback.imageUrl,
+          debug: toBool(raw.debug, fallback.debug)
+        };
+        log('Konfiguration normalisiert: ' + JSON.stringify(merged));
         return merged;
       } else {
         log('Kein "config"-Knoten in der Datenbank gefunden -> benutze Fallback: ' + JSON.stringify(fallback), 'err');
