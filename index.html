@@ -351,7 +351,7 @@
   let played = false;
 
   record.addEventListener('click', async () => {
-    if (played) return;
+    if (played || record.classList.contains('disabled') || !currentConfig) return;
     played = true;
 
     record.classList.add('spinning');
@@ -365,7 +365,7 @@
       setTimeout(spawnNote, i * 150);
     }
 
-    const config = await configPromise;
+    const config = currentConfig;
     const roll = Math.random();
     const showVideo = !config.randomEnabled || roll < config.videoChance;
     log(`Zufallswert: ${roll.toFixed(3)} | randomEnabled: ${config.randomEnabled} | videoChance: ${config.videoChance} -> Entscheidung: ${showVideo ? 'VIDEO' : 'BILD'}`);
